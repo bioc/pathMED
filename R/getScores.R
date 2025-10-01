@@ -210,7 +210,7 @@ getScores <- function(inputData,
                 scoreMatrix <- do.call(decoupleR::run_aucell, c(
                     list(
                         mat = inputData, network = net, .source = "source",
-                        .target = "target"
+                        .target = "target", nproc = cores
                     ),
                     params
                 ))

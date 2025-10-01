@@ -229,11 +229,11 @@ trainModel <- function(inputData,
     }
     if (is.character(metadata[, var2predict]) |
         is.factor(metadata[, var2predict])) {
-        metadata[, var2predict] <- stringi::stri_replace_all_regex(
+        metadata[, var2predict] <- factor(stringi::stri_replace_all_regex(
             metadata[, var2predict],
             pattern = c("/", " ", "-"), replacement = c(".", ".", "."),
             vectorize = FALSE
-        )
+        ))
     }
     if (!is.null(positiveClass)) {
         positiveClass <- stringi::stri_replace_all_regex(
@@ -260,9 +260,6 @@ trainModel <- function(inputData,
         replacement = c(".", ".", ".", "."), vectorize = FALSE
     )
     inputData <- inputData[!is.na(inputData$group), ]
-    if (is.factor(inputData$group)) {
-        inputData$group <- as.character(inputData$group)
-    }
     if (inputData %>% dplyr::summarise(dplyr::across(
         dplyr::everything(),
         ~ any(is.na(.) |
@@ -281,7 +278,10 @@ trainModel <- function(inputData,
 .trainModelOutcomeClass <- function(inputData, metadata, var2predict, Koutter,
     Kinner) {
     outcomeClass <- class(inputData$group)
-    if (methods::is(inputData$group, "character")) {
+    if (outcomeClass == "factor") {
+        outcomeClass <- "character"
+    }
+    if (outcomeClass == "character") {
         prior <- "MCC"
     } else {
         prior <- "Corr"
@@ -721,8 +721,8 @@ trainModel <- function(inputData,
             "specificity", "npv", "precision", "fscore"
         )
         type <- "classification"
-        levels <- c(positiveClass, unique(unique(inputData$group))[
-            !unique(inputData$group) %in% positiveClass
+        levels <- c(positiveClass, levels(inputData$group)[
+            !levels(inputData$group) %in% positiveClass
         ])
     } else {
         metrics <- c("r", "RMSE", "R2", "MAE", "RMAE", "RSE")
