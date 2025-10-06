@@ -242,9 +242,9 @@ trainModel <- function(inputData,
             replacement = c(".", ".", "."), vectorize = FALSE
         )
     } else {
-        positiveClass <- sort(unique(metadata[, var2predict]),
+        positiveClass <- as.character(sort(unique(metadata[, var2predict]),
             decreasing = TRUE
-        )[1]
+        )[1])
     }
     inputData <- inputData[, samples]
     metadata <- metadata[samples, , drop = FALSE]
