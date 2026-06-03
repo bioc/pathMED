@@ -3,9 +3,10 @@ title: "A comprehensive framework for precision medicine with omics data"
 author:
 - name: Jordi Martorell-Marugán
   affiliation:
-  - GENYO, Centre for Genomics and Oncological Research
-  - Andalusian Foundation for Biomedical Research in Eastern Andalusia (FIBAO)
-  email: jordi.martorell@genyo.es
+  - Computational Neuroscience. Joint Unit in Biomedical Imaging and Artificial 
+  Intelligence FISABIO–CIPF. Foundation for the Promotion of Health and 
+  Biomedical Research in the Valencian Region (Fisabio)
+  email: jordi.martorell@fisabio.es
 - name: Iván Ellson
   affiliation:
   - GENYO, Centre for Genomics and Oncological Research
@@ -15,7 +16,6 @@ author:
 - name: Daniel Toro-Domínguez
   affiliation:
   - GENYO, Centre for Genomics and Oncological Research
-  - Karolinska Institutet
   email: danieltorodominguez@gmail.com
 - name: Pedro Carmona-Sáez
   affiliation:
@@ -190,43 +190,15 @@ editor_options:
 
 # Introduction
 
-Omics technologies have advanced precision medicine by enabling the
-prediction of clinically relevant outcomes based on individual molecular
-profiles. However, their diagnostic and prognostic applications remain
-limited due to variability introduced by different technological
-platforms, laboratory protocols, and data processing methods. These
-inconsistencies hinder the generalizability of machine learning (ML)
-models trained on individual datasets.
+Omics technologies have advanced precision medicine by enabling the prediction of clinically relevant outcomes based on individual molecular profiles. However, their diagnostic and prognostic applications remain limited due to variability introduced by different technological platforms, laboratory protocols, and data processing methods. These inconsistencies hinder the generalizability of machine learning (ML) models trained on individual datasets.
 
-Single-sample molecular scoring has emerged as a promising solution to
-improve interstudy reproducibility. By summarizing molecular features
-(e.g., gene expression) into pathway or gene set activity scores, these
-methods provide a more standardized and robust representation of
-biological processes. This enables the development of ML models that
-generalize across datasets, even when quantification methods differ.
+Single-sample molecular scoring has emerged as a promising solution to improve interstudy reproducibility. By summarizing molecular features (e.g., gene expression) into pathway or gene set activity scores, these methods provide a more standardized and robust representation of biological processes. This enables the development of ML models that generalize across datasets, even when quantification methods differ.
 
-Several R packages implement molecular scoring methods, such as
-`decoupleR` (@badia2022) and `GSVA` (@hanzelman2013). `pathMED` unifies
-and simplifies these approaches, providing a common input format and
-allowing users to compute multiple scores efficiently. Additionally,
-`pathMED` includes our novel method, M-scores, which enhances disease
-characterization and prediction by leveraging reference datasets
-(@toroDominguez2022).
+Several R packages implement molecular scoring methods, such as `decoupleR` (@badia2022) and `GSVA` (@hanzelman2013). `pathMED` unifies and simplifies these approaches, providing a common input format and allowing users to compute multiple scores efficiently. Additionally, `pathMED` includes our novel method, M-scores, which enhances disease characterization and prediction by leveraging reference datasets (@toroDominguez2022).
 
-A key limitation of pathway-based scoring is the heterogeneity within
-gene sets, where different genes may have opposing effects on biological
-processes. Direct scoring of such broad gene sets can obscure meaningful
-patterns. To address this, pathMED incorporates methods to refine gene
-sets by clustering features with coordinated activity, improving pathway
-granularity and revealing previously hidden subpathways.
+A key limitation of pathway-based scoring is the heterogeneity within gene sets, where different genes may have opposing effects on biological processes. Direct scoring of such broad gene sets can obscure meaningful patterns. To address this, pathMED incorporates methods to refine gene sets by clustering features with coordinated activity, improving pathway granularity and revealing previously hidden subpathways.
 
-Many ML-based clinical prediction models also suffer from overfitting,
-unreliable performance metrics, and limited reproducibility in external
-datasets, restricting their clinical applicability. To overcome these
-challenges, pathMED provides a unified framework for ML model training,
-validation, and prediction. While it leverages the caret package,
-pathMED simplifies its usage and implements nested cross-validation by
-default to enhance model reliability.
+Many ML-based clinical prediction models also suffer from overfitting, unreliable performance metrics, and limited reproducibility in external datasets, restricting their clinical applicability. To overcome these challenges, pathMED provides a unified framework for ML model training, validation, and prediction. While it leverages the caret package, pathMED simplifies its usage and implements nested cross-validation by default to enhance model reliability.
 
 # Installation
 
@@ -236,12 +208,7 @@ You can install pathMED from the GitHub repository:
 devtools::install_github("jordimartorell/pathMED")
 ```
 
-Please note that on some operating systems such as Ubuntu there may be
-installation errors in the packages "metrica", "factoextra" and
-"FactoMineR", as it is necessary to install system dependencies with
-administrator permissions. These system dependencies can be identified
-the following code (adapted to Ubuntu 20.04) and installed by running
-the output in a terminal as administrator:
+Please note that on some operating systems such as Ubuntu there may be installation errors in the packages "metrica", "factoextra" and "FactoMineR", as it is necessary to install system dependencies with administrator permissions. These system dependencies can be identified the following code (adapted to Ubuntu 20.04) and installed by running the output in a terminal as administrator:
 
 ```{r, eval=FALSE}
 if (!require("pak")) {
@@ -259,16 +226,7 @@ pak::pkg_sysreqs(
 
 ## (Optional) Decomposing gene sets into coexpressed subsets
 
-Gene sets often contain genes associated with a specific biological
-function, but their expression can be heterogeneous, sometimes even
-exhibiting opposing directions when the function is altered (e.g., in
-disease). The `dissectDB()` function clusters the genes within each set
-into subsets based on coordinated expression patterns. This clustering
-can be performed using one or more molecular datasets, which may include
-control samples or not. The same dataset used in the following sections
-can also be used for this purpose. Both preloaded and custom gene sets
-can be used (see the next section for details). The following code
-splits KEGG pathways into subpathways using the example dataset:
+Gene sets often contain genes associated with a specific biological function, but their expression can be heterogeneous, sometimes even exhibiting opposing directions when the function is altered (e.g., in disease). The `dissectDB()` function clusters the genes within each set into subsets based on coordinated expression patterns. This clustering can be performed using one or more molecular datasets, which may include control samples or not. The same dataset used in the following sections can also be used for this purpose. Both preloaded and custom gene sets can be used (see the next section for details). The following code splits KEGG pathways into subpathways using the example dataset:
 
 ```{r, message = FALSE, results='hide', warning=FALSE}
 library(pathMED)
@@ -277,9 +235,7 @@ data(pathMEDExampleData)
 customKEGG <- dissectDB(list(pathMEDExampleData), geneSets = "kegg")
 ```
 
-The output is a gene set that can be used with the `getScores()`
-function. In the new gene set, subpathways are labeled with the suffix
-\_splitx. For example, for the pathway hsa04714:
+The output is a gene set that can be used with the `getScores()` function. In the new gene set, subpathways are labeled with the suffix \_splitx. For example, for the pathway hsa04714:
 
 ```{r, message = FALSE, warning=FALSE}
 # Before splitting
@@ -290,17 +246,11 @@ print(head(genesetsData[["kegg"]][["hsa04714"]]))
 print(customKEGG[grep("hsa04714", names(customKEGG))])
 ```
 
-Only the features available in the input dataset are included in this
-object.
+Only the features available in the input dataset are included in this object.
 
 ## Scoring
 
-The `getScores()` function calculates a score for each gene set and
-sample. It takes as input a matrix or data frame with molecular features
-in rows and samples in columns, along with a gene set collection. The
-function supports 20 different scoring methods, which can be specified
-using the `method` parameter. The available methods and their references
-are:
+The `getScores()` function calculates a score for each gene set and sample. It takes as input a matrix or data frame with molecular features in rows and samples in columns, along with a gene set collection. The function supports 20 different scoring methods, which can be specified using the `method` parameter. The available methods and their references are:
 
 -   M-score (@toroDominguez2022)
 -   GSVA (@hanzelman2013)
@@ -309,14 +259,10 @@ are:
 -   Plage (@tomfohr2005)
 -   Z-score (@lee2018)
 -   AUCell (@aibar2017)
--   decoupleR methods (MDT, MLM, ORA, UDT, ULM, WMEAN, norm_WMEAN,
-    corr_WMEAN, WSUM, norm_WSUM and corr_WSUM) (@badia2022)
+-   decoupleR methods (MDT, MLM, ORA, UDT, ULM, WMEAN, norm_WMEAN, corr_WMEAN, WSUM, norm_WSUM and corr_WSUM) (@badia2022)
 -   FGSEA and norm_FGSEA (@korotkevich2021)
 
-Gene sets can be provided as a named list, where each entry contains the
-genes associated with a specific gene set, using the `geneSets`
-parameter. Alternatively, preloaded databases can be used by specifying
-their name in the `geneSets` parameter.
+Gene sets can be provided as a named list, where each entry contains the genes associated with a specific gene set, using the `geneSets` parameter. Alternatively, preloaded databases can be used by specifying their name in the `geneSets` parameter.
 
 -   Reactome ("reactome")
 -   KEGG ("kegg")
@@ -329,15 +275,9 @@ their name in the `geneSets` parameter.
 -   LINCS ("lincs")
 -   Comparative Toxicogenomics Database ("ctd")
 
-Note that these preloaded gene sets are
-built with gene symbols. Therefore, the row names of the input data should be 
-gene symbols to use them.
+Note that these preloaded gene sets are built with gene symbols. Therefore, the row names of the input data should be gene symbols to use them.
 
-If running the script on a multi-core processor, you can use the `cores`
-parameter to specify the number of workers (most `pathMED` functions
-include this parameter). Additionally, specific parameters for the
-scoring functions can be customized (see, for example,
-`?GSVA::gsvaParam`).
+If running the script on a multi-core processor, you can use the `cores` parameter to specify the number of workers (most `pathMED` functions include this parameter). Additionally, specific parameters for the scoring functions can be customized (see, for example, `?GSVA::gsvaParam`).
 
 To run this function with the example data:
 
@@ -349,9 +289,7 @@ scoresExample <- getScores(pathMEDExampleData, geneSets = "kegg",
 print(scoresExample[1:5, 1:5])
 ```
 
-The result is a matrix with gene set identifiers as rows and samples as
-columns. To annotate the identifiers with their corresponding
-descriptions, you can use the `ann2term()` function.
+The result is a matrix with gene set identifiers as rows and samples as columns. To annotate the identifiers with their corresponding descriptions, you can use the `ann2term()` function.
 
 ```{r, message = FALSE}
 annotatedPathways <- ann2term(scoresExample)
@@ -360,31 +298,13 @@ head(annotatedPathways)
 
 ## Training ML models
 
-The next step in the core `pathMED` pipeline is to use the scores
-calculated in the previous step to train machine learning (ML) models
-for predicting categorical or numerical clinical variables. The
-`trainModel()` function fits and tests multiple algorithms, selecting
-the one with the best performance for predicting a variable. The input
-objects are `inputData` (the scores matrix obtained in the previous
-step, or any other numerical matrix), and `metadata` (a data frame
-containing sample metadata). The `var2predict` parameter indicates the
-column name of metadata with the variable to be predicted.
+The next step in the core `pathMED` pipeline is to use the scores calculated in the previous step to train machine learning (ML) models for predicting categorical or numerical clinical variables. The `trainModel()` function fits and tests multiple algorithms, selecting the one with the best performance for predicting a variable. The input objects are `inputData` (the scores matrix obtained in the previous step, or any other numerical matrix), and `metadata` (a data frame containing sample metadata). The `var2predict` parameter indicates the column name of metadata with the variable to be predicted.
 
-The function `methodsML()` should be used to prepare a list of ML
-algorithms to be trained and tested. One or more algorithms can be
-selected using the `algorithms` parameter (see the function help for
-details), and the amount of hyperparameters combinations to be tested is
-specified with the `tuneLength` parameter.
+The function `methodsML()` should be used to prepare a list of ML algorithms to be trained and tested. One or more algorithms can be selected using the `algorithms` parameter (see the function help for details), and the amount of hyperparameters combinations to be tested is specified with the `tuneLength` parameter.
 
-Nested cross-validation is performed using `Koutter` folds for the outer
-cross-validation (CV) and `Kinner` folds for the inner CV. The inner
-k-fold CV can be repeated multiple times (`repeatsCV` parameter) for
-hyperparameter tuning.
+Nested cross-validation is performed using `Koutter` folds for the outer cross-validation (CV) and `Kinner` folds for the inner CV. The inner k-fold CV can be repeated multiple times (`repeatsCV` parameter) for hyperparameter tuning.
 
-In the example dataset, the metadata include a column called `Response`,
-indicating whether patients responded to a treatment. The
-`positiveClass` parameter can be specified to calculate performance
-metrics based on the chosen positive class (e.g., diseased).
+In the example dataset, the metadata include a column called `Response`, indicating whether patients responded to a treatment. The `positiveClass` parameter can be specified to calculate performance metrics based on the chosen positive class (e.g., diseased).
 
 ```{r, message=FALSE}
 data(pathMEDExampleMetadata)
@@ -408,14 +328,11 @@ print(trainedModel)
 The output object is a list with the following elements:
 
 -   **model**: The selected algorithm trained with the entire dataset.
--   **stats**: Performance metrics for each tested algorithms. These
-    metrics are calculated with the testing samples of the outter CV.
+-   **stats**: Performance metrics for each tested algorithms. These metrics are calculated with the testing samples of the outter CV.
 -   **bestTune**: Optimized hyperparameters for the selected algorithm.
--   **subsample.preds**: The prediction probability for each class and
-    sample.
+-   **subsample.preds**: The prediction probability for each class and sample.
 
-This object may be used with the `predictExternal()` function to make
-predictions on new data with the same features than the training data.
+This object may be used with the `predictExternal()` function to make predictions on new data with the same features than the training data.
 
 ```{r, message=FALSE}
 data(refData)
@@ -429,47 +346,34 @@ predictions <- predictExternal(scoresExternal, trainedModel)
 head(predictions)
 ```
 
+### Recommendations
+
+It may be overwhelming to novel users to make decisions about important parameters of the ML models training and validation processes. Therefore, here we list the most important parameters to tune and provide some advice:
+
+-   **Koutter & Kinner in trainModel()**: These parameters control in how many folds the input data is split in the outer and inner nested cross-validation loops respectively. The default values (5 and 4) should work well as long as there are a sufficient amount of samples, but should be reduced otherwise. For instance, for 20 samples, the testing subsets of both the outer and the inner loops would contain only 4 samples (20/5 and 16/4 respectively). Although feasible, testing with only 4 samples may be missguiding hyperparameter optimization and validation. Lowering these parameters to 3 and 2 would results in testing subsets with 6-7 samples. On the opposite case, if there is a large amount of available samples, it may be useful to increase the default values to train more robust models, with the corresponding computational cost that should be also be considered.
+
+-   **repeatsCV in trainModel()**: This is important for hyperparameter tuning. Although using the default (5) or increasing it may have some impact on the optimization, we recommend to lower this parameter (even to 1 to avoid CV iterations) if it is needed to reduce the computation time.
+
+-   **tunelength in methodsML()**: This parameter controls how many random hyperparameters combinations will be tested during optimization. It is expected that increasing this value will improve the models performance, but implies longer computing time. In any case, we would not recommend to reduce the default value.
+
 # Using M-scores to extract disease-relevant information
 
-In addition to previously developed molecular scoring methods, pathMED
-includes the novel M-score method. M-scores were used in a previous
-study that used personalized scoring to predict drug response, symptoms
-and disease progression in Systemic Lupus Erythematosus patients based
-on gene expression data @toroDominguez2022.
+In addition to previously developed molecular scoring methods, pathMED includes the novel M-score method. M-scores were used in a previous study that used personalized scoring to predict drug response, symptoms and disease progression in Systemic Lupus Erythematosus patients based on gene expression data @toroDominguez2022.
 
-M-scores are calculated by comparing pathway activities between cases
-and healthy controls, requiring the availability of control sample data.
-To use M-scores with the `getScores()` function, the `labels` parameter
-must be used to indicate control samples (using 0 or "Healthy").
+M-scores are calculated by comparing pathway activities between cases and healthy controls, requiring the availability of control sample data. To use M-scores with the `getScores()` function, the `labels` parameter must be used to indicate control samples (using 0 or "Healthy").
 
-As described previously @toroDominguez2022, M-scores can be used to
-identify key pathways associated with the studied disease. To achieve
-this, a reference dataset of patients and healthy controls must be
-constructed, either from a single dataset or by integrating multiple
-datasets, following the steps outlined below. This reference will also
-enable the imputation of M-scores in new cohorts or individual patients
-where healthy controls are not available.
+As described previously @toroDominguez2022, M-scores can be used to identify key pathways associated with the studied disease. To achieve this, a reference dataset of patients and healthy controls must be constructed, either from a single dataset or by integrating multiple datasets, following the steps outlined below. This reference will also enable the imputation of M-scores in new cohorts or individual patients where healthy controls are not available.
 
 ## Build the reference data object
 
-We will load `refData` into the environment, which includes four
-log2-normalized gene expression datasets and four corresponding metadata
-datasets containing clinical information. These datasets were extracted
-from NCBI GEO and contain both lupus and healthy samples, encoded in the
-metadata as "Healthy_sample" and "Disease_sample".
+We will load `refData` into the environment, which includes four log2-normalized gene expression datasets and four corresponding metadata datasets containing clinical information. These datasets were extracted from NCBI GEO and contain both lupus and healthy samples, encoded in the metadata as "Healthy_sample" and "Disease_sample".
 
-The `buildRefObject()` function can be used to create a `refObject`
-object with the required structure for the following steps. The function
-require:
+The `buildRefObject()` function can be used to create a `refObject` object with the required structure for the following steps. The function require:
 
--   A list of expression datasets (`data`) or a single dataset if only
-    one is available.
--   A list of metadata files (one per dataset) or a single metadata
-    table containing information for all samples.
+-   A list of expression datasets (`data`) or a single dataset if only one is available.
+-   A list of metadata files (one per dataset) or a single metadata table containing information for all samples.
 -   The name of the grouping column in the metadata (`groupVar`).
--   The control group label (`controlGroup`), typically representing
-    healthy samples. If different datasets use different control labels,
-    a separate value should be provided for each metadata file.
+-   The control group label (`controlGroup`), typically representing healthy samples. If different datasets use different control labels, a separate value should be provided for each metadata file.
 
 ```{r, message = FALSE, results='hide', warning=FALSE}
 data(refData)
@@ -488,17 +392,11 @@ refObject <- buildRefObject(
 )
 ```
 
-To create the `refObject` object, it is recommended to include as many
-datasets as possible to improve robustness. Ensure that all gene
-expression datasets are log2 transformed and follow a normal
-distribution. Additionally, gene names must be annotated as Gene Symbols
-in both reference and test datasets.
+To create the `refObject` object, it is recommended to include as many datasets as possible to improve robustness. Ensure that all gene expression datasets are log2 transformed and follow a normal distribution. Additionally, gene names must be annotated as Gene Symbols in both reference and test datasets.
 
 ## Calculate the reference M-scores
 
-After creating a `refObject` object, the next step is to calculate
-M-scores for the reference datasets with the `mScores_createReference()`
-function.
+After creating a `refObject` object, the next step is to calculate M-scores for the reference datasets with the `mScores_createReference()` function.
 
 ```{r, eval=TRUE, warning=FALSE, message=FALSE, results='hide'}
 refMscores <- mScores_createReference(refObject,
@@ -509,19 +407,9 @@ refMscores <- mScores_createReference(refObject,
 
 ## Identify key gene sets
 
-To identify the most relevant gene sets for the studied phenotype, you
-can use the `mScores_filterPaths()` function. This function selects
-pathways based on two key parameters: `perc_samples`, which defines the
-percentage of samples in which a pathway must be statistically
-significant, and `min_datasets`, which sets the minimum number of
-datasets that must meet this th
+To identify the most relevant gene sets for the studied phenotype, you can use the `mScores_filterPaths()` function. This function selects pathways based on two key parameters: `perc_samples`, which defines the percentage of samples in which a pathway must be statistically significant, and `min_datasets`, which sets the minimum number of datasets that must meet this th
 
-These parameters help identify pathways that may be significant in small
-patient subgroups—a common scenario in heterogeneous diseases—while also
-ensuring that the selected pathways appear deregulated across multiple
-studies, reducing the risk of study-specific biases. The significance of
-each pathway in each sample is determined using its M-score, as
-described in the original study @toroDominguez2022.
+These parameters help identify pathways that may be significant in small patient subgroups—a common scenario in heterogeneous diseases—while also ensuring that the selected pathways appear deregulated across multiple studies, reducing the risk of study-specific biases. The significance of each pathway in each sample is determined using its M-score, as described in the original study @toroDominguez2022.
 
 ```{r, warning=FALSE}
 relevantPaths <- mScores_filterPaths(
@@ -533,21 +421,11 @@ relevantPaths <- mScores_filterPaths(
 
 ## Calculate the M-scores without healthy controls
 
-Once the reference data is prepared and the relevant gene sets are
-selected, you can calculate M-scores for datasets without healthy
-controls using the `mScores_imputeFromReference()` function.
+Once the reference data is prepared and the relevant gene sets are selected, you can calculate M-scores for datasets without healthy controls using the `mScores_imputeFromReference()` function.
 
-The function requires a matrix containing case samples, gene sets (or
-the output of the `mScores_filterPaths()` function), and the reference
-data generated by `mScores_createReference()`. M-scores are computed
-using the **k** most similar samples from the reference data, with **k**
-specified through the `nk` parameter. The `distance.threshold` parameter
-defines the maximum allowable Euclidean distance between a sample and
-the reference for M-score imputation.
+The function requires a matrix containing case samples, gene sets (or the output of the `mScores_filterPaths()` function), and the reference data generated by `mScores_createReference()`. M-scores are computed using the **k** most similar samples from the reference data, with **k** specified through the `nk` parameter. The `distance.threshold` parameter defines the maximum allowable Euclidean distance between a sample and the reference for M-score imputation.
 
-The output is a list containing a matrix of M-scores, where gene sets
-are in rows and samples in columns, along with a dataframe of calculated
-distances between each sample and the reference.
+The output is a list containing a matrix of M-scores, where gene sets are in rows and samples in columns, along with a dataframe of calculated distances between each sample and the reference.
 
 ```{r, warning=FALSE}
 mScoresExample <- mScores_imputeFromReference(
@@ -560,6 +438,30 @@ mScoresExample <- mScores_imputeFromReference(
 print(mScoresExample$Mscores[1:5, 1:5])
 print(mScoresExample$Distances[1:5, ])
 ```
+
+# Data licenses
+
+The genesets databases integrated in PathMED must be used following their corresponding data licenses. We list bellow their corresponding data licences or links where data use conditions are described, but users should verify potential use limitations in their corresponding webpages, especially regarding non-academic use.
+
+-   Gene Ontology: Creative Commons Attribution 4.0 Unported License
+
+-   Reactome: Creative Commons Public Domain Dedication (CC0)
+
+-   KEGG: <https://www.pathway.jp/en/licensing.html>
+
+-   tmod: GPL-2 \| GPL-3
+
+-   Disgenet: <https://support.disgenet.com/support/solutions/articles/202000087487-do-i-need-a-commercial-license-can-i-use-disgenet-data-in-my-product->
+
+-   Human Phenotype Ontology: <https://hpo.jax.org/license>
+
+-   WikiPathways: Creative Commons CC0
+
+-   PharmGKB: Creative Commons Attribution-ShareAlike 4.0 International License
+
+-   LINCS: <https://lincsproject.org/LINCS/data/release-policy>
+
+-   Comparative Toxicogenomics Database: <https://ctdbase.org/about/legal.jsp>
 
 # Session info
 

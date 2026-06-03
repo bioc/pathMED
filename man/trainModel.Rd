@@ -14,11 +14,14 @@ trainModel(
   Koutter = 5,
   Kinner = 4,
   repeatsCV = 5,
+  priorStatDiscrete = "mcc",
+  priorStatContinuous = "r",
   filterFeatures = NULL,
   filterSizes = seq(2, 100, by = 2),
   rerank = FALSE,
   continue_on_fail = TRUE,
   saveLogFile = NULL,
+  modelEnsemble = FALSE,
   use.assay = 1
 )
 }
@@ -54,6 +57,14 @@ training on that iteration.}
 
 \item{repeatsCV}{Number of repetitions of the parameter tuning process.}
 
+\item{priorStatDiscrete}{Performance metric used to select the top ML
+algorithm in classification tasks. One of the following ones: mcc, balacc,
+accuracy, recall, specificity, npv, precision, fscore.}
+
+\item{priorStatContinuous}{Performance metric used to select the top ML
+algorithm in regression tasks. One of the following ones: r, r2, RMSE, MAE,
+RMAE, RSE.}
+
 \item{filterFeatures}{"rfe" (Recursive Feature Elimination), "sbf" (Selection
 By Filtering) or NULL (no feature selection).}
 
@@ -68,6 +79,9 @@ of them fail.}
 
 \item{saveLogFile}{Path to a .txt file in which to save error and warning
 messages.}
+
+\item{modelEnsemble}{Logical. If TRUE, evaluates an additional stacked
+ensemble that combines predictions from the valid trained algorithms.}
 
 \item{use.assay}{If SummarizedExperiments are used, the number of the assay 
 to extract the data.}

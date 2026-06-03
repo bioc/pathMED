@@ -79,6 +79,8 @@ predictExternal <- function(
     if ("model" %in% names(model)) {
         model <- model$model
     }
+    isEnsemble <- inherits(model, "caretEnsemble") ||
+        (!is.null(model$feature_names) && !is.null(model$models))
 
     testData <- t(testData)
 
@@ -89,12 +91,22 @@ predictExternal <- function(
         replacement = c(".", ".", ".", "."), vectorize = FALSE
     )
 
-    features <- colnames(model$trainingData)[!grepl(
-        "outcome",
-        colnames(
-            model$trainingData
-        )
-    )]
+    if (isEnsemble) {
+        features <- model$feature_names
+        if (is.null(features)) {
+            features <- colnames(model$models[[1]]$trainingData)[!grepl(
+                "outcome",
+                colnames(model$models[[1]]$trainingData)
+            )]
+        }
+    } else {
+        features <- colnames(model$trainingData)[!grepl(
+            "outcome",
+            colnames(
+                model$trainingData
+            )
+        )]
+    }
     if (!all(features %in% colnames(testData))) {
         missingFeatures <- setdiff(features, colnames(testData))
         stop("Missing features in testData: ", paste(missingFeatures,
@@ -102,10 +114,25 @@ predictExternal <- function(
         ))
     }
 
-    testData <- testData[, features]
+    testData <- testData[, features, drop = FALSE]
 
     ## Get predictions
-    test.predictions <- stats::predict(model, newdata = testData)
+    if (isEnsemble && identical(model$outcomeClass, "character")) {
+        predProb <- stats::predict(model, newdata = testData,
+            excluded_class_id = 2L)
+        if (is.data.frame(predProb) || is.matrix(predProb)) {
+            predProb <- predProb[, 1]
+        } else if (is.list(predProb)) {
+            predProb <- predProb[[1]]
+        }
+        levels <- model$class_levels
+        test.predictions <- factor(
+            ifelse(predProb >= 0.5, levels[1], levels[2]),
+            levels = levels
+        )
+    } else {
+        test.predictions <- stats::predict(model, newdata = testData)
+    }
     names(test.predictions) <- rownames(testData)
 
 
@@ -119,13 +146,25 @@ predictExternal <- function(
         return(test.predictions)
     } else {
         ## Get model performance
+        if (!is.null(names(realValues))) {
+            missingRealValues <- setdiff(names(test.predictions),
+                names(realValues))
+            if (length(missingRealValues) > 0) {
+                stop("Missing realValues for samples: ", paste(
+                    missingRealValues,
+                    collapse = ", "
+                ))
+            }
+            realValues <- realValues[names(test.predictions)]
+        }
 
-        if (!is.numeric(model$trainingData[, grepl(
-            "outcome",
-            colnames(
-                model$trainingData
-            )
-        )])) {
+        if ((isEnsemble && identical(model$outcomeClass, "character")) ||
+            (!isEnsemble && !is.numeric(model$trainingData[, grepl(
+                "outcome",
+                colnames(
+                    model$trainingData
+                )
+            )]))) {
             if (is.null(positiveClass)) {
                 positiveClass <- sort(unique(realValues),
                     decreasing = TRUE
@@ -151,11 +190,7 @@ predictExternal <- function(
             type <- "regression"
             metrics <- c("r", "RMSE", "R2", "MAE", "RMAE", "RSE")
 
-            levels <- c(positiveClass, setdiff(
-                unique(realValues),
-                positiveClass
-            ))
-            obs <- obs
+            obs <- as.numeric(realValues)
             preds <- test.predictions
         }
 

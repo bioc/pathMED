@@ -22,6 +22,12 @@
 #' training on that iteration.
 #' @param Kinner Number of innter cross-validation folds (for parameter tuning).
 #' @param repeatsCV Number of repetitions of the parameter tuning process.
+#' @param priorStatDiscrete Performance metric used to select the top ML
+#' algorithm in classification tasks. One of the following ones: mcc, balacc,
+#' accuracy, recall, specificity, npv, precision, fscore.
+#' @param priorStatContinuous Performance metric used to select the top ML
+#' algorithm in regression tasks. One of the following ones: r, r2, RMSE, MAE,
+#' RMAE, RSE.
 #' @param filterFeatures "rfe" (Recursive Feature Elimination), "sbf" (Selection
 #' By Filtering) or NULL (no feature selection).
 #' @param filterSizes Only for filterFeatures = "rfe". A numeric vector of
@@ -32,6 +38,8 @@
 #'  of them fail.
 #' @param saveLogFile Path to a .txt file in which to save error and warning
 #' messages.
+#' @param modelEnsemble Logical. If TRUE, evaluates an additional stacked
+#' ensemble that combines predictions from the valid trained algorithms.
 #' @param use.assay If SummarizedExperiments are used, the number of the assay 
 #' to extract the data.
 #' 
@@ -84,11 +92,14 @@ trainModel <- function(inputData,
     Koutter = 5,
     Kinner = 4,
     repeatsCV = 5,
+    priorStatDiscrete = "mcc",
+    priorStatContinuous = "r",
     filterFeatures = NULL,
     filterSizes = seq(2, 100, by = 2),
     rerank = FALSE,
     continue_on_fail = TRUE,
     saveLogFile = NULL,
+    modelEnsemble = FALSE,
     use.assay = 1) {
     # 1 Checking
     if (is.null(metadata) & !is(inputData, "ExpressionSet") &
@@ -127,12 +138,30 @@ trainModel <- function(inputData,
     # # 3 Outcome
     resOutcome <- .trainModelOutcomeClass(
         inputData, metadata, var2predict,
-        Koutter, Kinner
+        Koutter, Kinner, priorStatDiscrete, priorStatContinuous
     )
     outcomeClass <- resOutcome$outcomeClass
-    prior <- resOutcome$prior
+    priorStat <- resOutcome$priorStat
+    if (modelEnsemble && !requireNamespace("caretEnsemble", quietly = TRUE)) {
+        stop("Package 'caretEnsemble' is required for modelEnsemble = TRUE")
+    }
+    if (modelEnsemble && outcomeClass == "character") {
+        ensembleLevels <- c(positiveClass, levels(inputData$group)[
+            !levels(inputData$group) %in% positiveClass
+        ])
+        if (length(ensembleLevels) != 2) {
+            stop("modelEnsemble currently supports binary classification only")
+        }
+        inputData$group <- factor(inputData$group, levels = ensembleLevels)
+    }
     # # 4 Filtering models
     models <- .trainModelMethodsFiltering(inputData, outcomeClass, models)
+    if (modelEnsemble) {
+        models <- .trainModelPrepareEnsembleModels(
+            models, outcomeClass, nrow(inputData), ncol(inputData) - 1,
+            length(unique(inputData$group))
+        )
+    }
     # # 5 Koutter
     resKoutter <- .trainModelKoutter(
         inputData, metadata, outcomeClass, Koutter,
@@ -178,12 +207,52 @@ trainModel <- function(inputData,
         outcomeClass
     )
     # 12 modify stats
-    stats <- .trainModelModifyStats(stats, models, prior)
+    stats <- .trainModelModifyStats(stats, priorStat)
+
+    if (modelEnsemble) {
+        ensembleStats <- .trainModelEnsembleStats(
+            resultNested, sampleSets, inputData, models, levels, type,
+            metrics, outcomeClass, continue_on_fail, ntest
+        )
+    }
+
     # 13 parameters, prediction and loss
     resStats <- .trainModelFinalStats(stats, resultNested, ntest)
     stats <- resStats$stats
     parameters <- resStats$parameters
     predsTable <- resStats$predsTable
+
+    if (modelEnsemble) {
+        stats <- cbind(
+            ensembleStats$stats[rownames(stats), , drop = FALSE],
+            stats
+        )
+        stats <- .trainModelModifyStats(stats, priorStat)
+
+        if (colnames(stats)[1] == "Ensemble") {
+            predsTable <- ensembleStats$predsTable
+            fit.model <- .trainModelEnsembleFit(
+                inputData, Finalfeatures, models, outcomeClass, Kinner,
+                continue_on_fail, levels
+            )
+            bestTune <- lapply(fit.model$models, function(model) {
+                model$bestTune
+            })
+        } else {
+            predsTable <- resStats$predsTable
+            bestTune <- .trainModelBestTune(parameters)
+            fit.model <- .trainModelFit(
+                inputData, Finalfeatures, stats, outcomeClass,
+                bestTune
+            )
+        }
+
+        return(list(
+            model = fit.model, stats = stats, bestTune = bestTune,
+            subsample.preds = predsTable
+        ))
+    }
+
     # 14 best tune
     bestTune <- .trainModelBestTune(parameters)
     # 15 final model
@@ -246,10 +315,10 @@ trainModel <- function(inputData,
             decreasing = TRUE
         )[1])
     }
-    inputData <- inputData[, samples]
+    inputData <- inputData[, samples, drop = FALSE]
     metadata <- metadata[samples, , drop = FALSE]
     # Remove features with all 0
-    inputData <- inputData[rowSums(inputData) != 0, ]
+    inputData <- inputData[rowSums(inputData) != 0, , drop = FALSE]
     inputData <- data.frame(
         "group" = metadata[, var2predict],
         as.data.frame(t(inputData))
@@ -276,15 +345,15 @@ trainModel <- function(inputData,
 }
 
 .trainModelOutcomeClass <- function(inputData, metadata, var2predict, Koutter,
-    Kinner) {
+    Kinner, priorStatDiscrete, priorStatContinuous) {
     outcomeClass <- class(inputData$group)
     if (outcomeClass == "factor") {
         outcomeClass <- "character"
     }
     if (outcomeClass == "character") {
-        prior <- "MCC"
+        priorStat <- priorStatDiscrete
     } else {
-        prior <- "Corr"
+        priorStat <- priorStatContinuous
     }
 
     if (outcomeClass == "character" & !is.list(Koutter)) {
@@ -322,7 +391,7 @@ trainModel <- function(inputData,
     }
     return(list(
         "outcomeClass" = outcomeClass,
-        "prior" = prior
+        "priorStat" = priorStat
     ))
 }
 
@@ -827,7 +896,7 @@ trainModel <- function(inputData,
     return(stats)
 }
 
-.trainModelModifyStats <- function(stats, models, prior) {
+.trainModelModifyStats <- function(stats, priorStat) {
     if (sum(is.na(stats)) > 0) {
         message("Some metrics could not be calculated and are returned as 0.0")
         stats <- apply(stats, 2, function(x) {
@@ -840,18 +909,16 @@ trainModel <- function(inputData,
             }
         })
     }
-    if (length(models) > 1) {
-        switch(prior,
-            "MCC" = {
-                stats <- stats[, order(as.numeric(stats["mcc", ]),
-                    decreasing = TRUE
-                )]
-            },
-            "Corr" = {
-                stats <- stats[, order(as.numeric(stats["r", ]),
-                    decreasing = TRUE
-                )]
-            }
+    if (ncol(as.data.frame(stats)) > 1) {
+        if (priorStat %in% c("RMSE", "MAE", "RMAE", "RSE")) {
+            decreaseStat <- FALSE
+        } else {
+            decreaseStat <- TRUE
+        }
+        switch(priorStat,
+               stats <- stats[, order(as.numeric(stats[priorStat, ]),
+                                      decreasing = decreaseStat
+               )]
         )
     }
     return(stats)
@@ -896,6 +963,269 @@ trainModel <- function(inputData,
         bestTune$.max_depth <- round(bestTune$.max_depth)
     }
     return(bestTune)
+}
+
+.trainModelPrepareEnsembleModels <- function(models, outcomeClass, nSamples,
+                                             nFeatures, nClasses) {
+    if (outcomeClass == "character" && "nb" %in% names(models)) {
+        nbModel <- models[["nb"]]
+        nbModel$preProcess <- unique(c(
+            nbModel$preProcess, c("center", "scale", "pca")
+        ))
+
+        if (is.null(nbModel$pcaComp) && is.null(nbModel$thresh)) {
+            nbModel$pcaComp <- max(1, min(50, nFeatures, nSamples - 2))
+        }
+
+        models[["nb"]] <- nbModel
+    }
+
+    if ("nnet" %in% names(models)) {
+        nnetModel <- models[["nnet"]]
+        maxSize <- 20
+        if (!is.null(nnetModel$tuneLength)) {
+            maxSize <- max(maxSize, (nnetModel$tuneLength * 2) - 1)
+        }
+        if (!is.null(nnetModel$tuneGrid) &&
+            "size" %in% colnames(nnetModel$tuneGrid)) {
+            maxSize <- max(maxSize, nnetModel$tuneGrid$size)
+        }
+        nOutputs <- if (outcomeClass == "character") nClasses else 1
+        maxWeights <- ((nFeatures + 1) * maxSize) +
+            ((maxSize + 1) * nOutputs)
+        if (is.null(nnetModel$MaxNWts)) {
+            nnetModel$MaxNWts <- max(1000, round(maxWeights * 10))
+        }
+        if (is.null(nnetModel$trace)) {
+            nnetModel$trace <- FALSE
+        }
+        models[["nnet"]] <- nnetModel
+    }
+
+    models
+}
+
+.trainModelEnsembleStats <- function(resultNested, sampleSets, inputData,
+                                     models, levels, type, metrics,
+                                     outcomeClass, continue_on_fail, ntest) {
+    message("Calculating ensemble performance metrics...")
+    allPreds <- vector("list", length(sampleSets))
+
+    for (i in seq_along(sampleSets)) {
+        fold <- sampleSets[[i]]
+        testing <- inputData[-as.numeric(unlist(fold)), ]
+        modelList <- resultNested[[i]]$models
+        modelList <- modelList[names(modelList) %in% names(models)]
+
+        foldPred <- tryCatch({
+            modelList <- .trainModelFilterEnsembleModels(
+                modelList, outcomeClass, continue_on_fail
+            )
+            ensFold <- caretEnsemble::caretEnsemble(modelList)
+            features <- .trainModelEnsembleFeatures(modelList)
+            testingNewdata <- testing[, features, drop = FALSE]
+
+            if (outcomeClass == "character") {
+                probPos <- stats::predict(
+                    ensFold, newdata = testingNewdata,
+                    excluded_class_id = 2L
+                )
+                if (is.data.frame(probPos) || is.matrix(probPos)) {
+                    probPos <- probPos[, 1]
+                } else if (is.list(probPos)) {
+                    probPos <- probPos[[1]]
+                }
+                data.frame(
+                    pred = factor(
+                        ifelse(probPos >= 0.5, levels[1], levels[2]),
+                        levels = levels
+                    ),
+                    obs = factor(testing$group, levels = levels),
+                    row.names = rownames(testing)
+                )
+            } else {
+                predVals <- stats::predict(ensFold, newdata = testingNewdata)
+                if (is.data.frame(predVals) || is.matrix(predVals)) {
+                    predVals <- predVals[, 1]
+                } else if (is.list(predVals)) {
+                    predVals <- predVals[[1]]
+                }
+                data.frame(
+                    pred = as.numeric(predVals),
+                    obs = as.numeric(testing$group),
+                    row.names = rownames(testing)
+                )
+            }
+        }, error = function(e) {
+            if (continue_on_fail) {
+                message(sprintf("Ensemble fold %d failed: %s", i, e$message))
+                NULL
+            } else {
+                stop(e)
+            }
+        })
+
+        allPreds[[i]] <- foldPred
+    }
+
+    validPreds <- Filter(Negate(is.null), allPreds)
+    if (length(validPreds) == 0) {
+        stop("All ensemble folds failed. Please check your data and models.")
+    }
+
+    predsTable <- do.call(rbind, validPreds)
+    nLoss <- 100 - (nrow(predsTable) / ntest * 100)
+
+    if (outcomeClass == "character") {
+        resultsTable <- metrica::metrics_summary(
+            obs = factor(predsTable$obs, levels = levels),
+            pred = factor(predsTable$pred, levels = levels),
+            type = type,
+            pos_level = 1,
+            metrics_list = metrics
+        )
+    } else {
+        resultsTable <- metrica::metrics_summary(
+            obs = predsTable$obs,
+            pred = predsTable$pred,
+            type = type,
+            metrics_list = metrics
+        )
+    }
+
+    rownames(resultsTable) <- resultsTable$Metric
+    stats <- data.frame(Ensemble = resultsTable[metrics, "Score"])
+    rownames(stats) <- metrics
+    stats <- rbind(stats, perc.lossSamples = nLoss)
+
+    message("Done")
+    list(stats = stats, predsTable = predsTable)
+}
+
+.trainModelEnsembleFeatures <- function(modelList) {
+    features <- colnames(modelList[[1]]$trainingData)
+    features[!grepl("outcome", features)]
+}
+
+.trainModelEnsembleCaretList <- function(form, data, trControl, tuneList,
+                                         continue_on_fail) {
+    global_args <- list(form, data)
+    global_args[["trControl"]] <- trControl
+
+    modelList <- lapply(names(tuneList), function(modelName) {
+        model_args <- c(global_args, tuneList[[modelName]])
+        if (!continue_on_fail) {
+            return(.removeOutText(do.call(caret::train, model_args)))
+        }
+
+        err <- NULL
+        model <- withCallingHandlers(
+            tryCatch(
+                .removeOutText(do.call(caret::train, model_args)),
+                error = function(e) {
+                    err <<- conditionMessage(e)
+                    NULL
+                }
+            ),
+            warning = function(w) {
+                invokeRestart("muffleWarning")
+            }
+        )
+
+        if (is.null(model)) {
+            message(sprintf("Model %s failed: %s", modelName, err))
+        }
+        model
+    })
+    names(modelList) <- names(tuneList)
+    modelList <- modelList[!vapply(modelList, is.null, logical(1))]
+
+    if (length(modelList) == 0) {
+        stop("caret::train failed for all models. Please check your data.")
+    }
+
+    class(modelList) <- "caretList"
+    modelList
+}
+
+.trainModelFilterEnsembleModels <- function(modelList, outcomeClass,
+                                            continue_on_fail) {
+    invalidModels <- vapply(modelList, function(model) {
+        pred <- as.data.frame(model$pred)
+        if (nrow(pred) == 0) {
+            return(TRUE)
+        }
+
+        if (outcomeClass == "character") {
+            probCols <- intersect(model$levels, colnames(pred))
+            if (length(probCols) == 0) {
+                return(TRUE)
+            }
+            any(!is.finite(as.matrix(pred[, probCols, drop = FALSE])))
+        } else {
+            if (!"pred" %in% colnames(pred)) {
+                return(TRUE)
+            }
+            any(!is.finite(pred$pred))
+        }
+    }, logical(1))
+
+    if (any(invalidModels)) {
+        failedModels <- names(modelList)[invalidModels]
+        msg <- paste0(
+            "The following models produced non-finite resampling ",
+            "predictions and were removed from the ensemble: ",
+            paste(failedModels, collapse = ", ")
+        )
+        if (!continue_on_fail) {
+            stop(msg)
+        }
+        message(msg)
+        modelList <- modelList[!invalidModels]
+    }
+
+    if (length(modelList) == 0) {
+        stop("All models produced invalid resampling predictions.")
+    }
+
+    class(modelList) <- "caretList"
+    modelList
+}
+
+.trainModelEnsembleFit <- function(inputData, Finalfeatures, models,
+                                   outcomeClass, Kinner, continue_on_fail,
+                                   levels) {
+    message("Training final ensemble with all samples...")
+    newData <- inputData[, colnames(inputData) %in% c("group", Finalfeatures)]
+    models <- .trainModelPrepareEnsembleModels(
+        models, outcomeClass, nrow(newData), ncol(newData) - 1,
+        length(unique(newData$group))
+    )
+
+    final_control <- caret::trainControl(
+        method = "cv",
+        number = Kinner,
+        savePredictions = "final",
+        classProbs = (outcomeClass == "character"),
+        search = "random"
+    )
+
+    modelList <- .trainModelEnsembleCaretList(
+        group ~ .,
+        data = newData,
+        trControl = final_control,
+        tuneList = models,
+        continue_on_fail = continue_on_fail
+    )
+    modelList <- .trainModelFilterEnsembleModels(
+        modelList, outcomeClass, continue_on_fail
+    )
+    fit.model <- caretEnsemble::caretEnsemble(modelList)
+    fit.model$feature_names <- colnames(newData)[colnames(newData) != "group"]
+    fit.model$outcomeClass <- outcomeClass
+    fit.model$class_levels <- levels
+    message("Done")
+    fit.model
 }
 
 .trainModelFit <- function(inputData, Finalfeatures, stats, outcomeClass,
