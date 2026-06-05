@@ -3,9 +3,7 @@ title: "A comprehensive framework for precision medicine with omics data"
 author:
 - name: Jordi Martorell-Marugán
   affiliation:
-  - Computational Neuroscience. Joint Unit in Biomedical Imaging and Artificial 
-  Intelligence FISABIO–CIPF. Foundation for the Promotion of Health and 
-  Biomedical Research in the Valencian Region (Fisabio)
+  - Computational Neuroscience. Joint Unit in Biomedical Imaging and Artificial Intelligence FISABIO–CIPF. Foundation for the Promotion of Health and Biomedical Research in the Valencian Region (Fisabio)
   email: jordi.martorell@fisabio.es
 - name: Iván Ellson
   affiliation:
